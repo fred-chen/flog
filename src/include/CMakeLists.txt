@@ -1,0 +1,1 @@
+CONFIGURE_FILE(${CMAKE_CURRENT_SOURCE_DIR}/config.hpp.in ${CMAKE_CURRENT_SOURCE_DIR}/flog_config.hpp)
