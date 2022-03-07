@@ -28,13 +28,13 @@ using std::string;
         level_element(WARN)     \
         level_element(ERROR)
 
-enum flog_severities {
+enum SERVERITIES {
     log_level_list
 };
 
 #undef  level_element
 #define level_element(X) #X,
-std::vector<string> log_levels_str {
+std::vector<string> SERVERITIES_STR {
     log_level_list
 };
 
@@ -43,7 +43,7 @@ struct FLOG_SETTINGS
     string log_dir      { PROJECT_NAME "_log" };
     string err_filename { PROJECT_NAME ".err" };
     string log_filename { PROJECT_NAME ".log" };
-} g_flog_defaults;
+} g_flog_defaults, g_flog_settings;
 
 
 bool file_exists ( const char * path ) {
@@ -55,16 +55,14 @@ bool file_exists ( const char * path ) {
 }
 
 /**
- * @brief a 'ostream-like' object, that behaves like 'tee' command
- *        which prints the inputs to both screen and a file
+ * @brief an 'ostream-like' object, that behaves like 'tee' command
+ *        which prints the inputs to both screen and a file.
  * 
  */
 class tee_logger {
-    using SEVERITY = flog_severities;
     enum OUTPUTTYPE { MAIN_OUTPUT, SECOND_OUTPUT, BOTH_OUTPUT };
     private:
         OUTPUTTYPE     _output_type;    // whether to print to console
-        SEVERITY       _sev;            // the log level
         std::ostream   _output;         // the main output object
         std::ostream   _output2;        // the 2nd output object
     public:
@@ -73,10 +71,17 @@ class tee_logger {
             _output2(std::cerr.rdbuf()),
             _output_type(BOTH_OUTPUT) {}
         
-        tee_logger( std::ostream & output, std::ostream & output2 ) : 
-            _output_type(BOTH_OUTPUT),
+        tee_logger( std::ostream & output, std::ostream & output2, 
+                    OUTPUTTYPE type = BOTH_OUTPUT ) :
+            _output_type(type),
             _output(output.rdbuf()),
             _output2(output2.rdbuf()) {}
+
+        tee_logger( const tee_logger & rhs ) : tee_logger() {
+            // _output_type = rhs._output_type;
+            // _output.rdbuf(rhs._output.rdbuf());
+            // _output2.rdbuf(rhs._output2.rdbuf());
+        }
         
         /* below simulation funcitons of a real ostream */
         
@@ -136,79 +141,57 @@ class tee_logger {
             pf(_output);
             return (*this);
         }
-};
 
-class logger : public Singleton<logger> {
-    using SEVERITY = flog_severities;
-    enum OUTPUTTYPE { MAIN_OUTPUT, SECOND_OUTPUT, BOTH };
-    private:
-        struct         FLOG_SETTINGS _settings;
-        OUTPUTTYPE     _output_type;    // a switch to control whether to print to console
-        std::ofstream  _logfile;        // the log file
-        std::ofstream  _errfile;        // the error log file
-        SEVERITY       _sev;            // the log level
-    private:
-        void openlog() {
-            if ( ! _logfile.is_open() ) {
-                if ( !file_exists(_settings.log_dir.c_str()) ) {
-                    ::mkdir(_settings.log_dir.c_str(), 0755);
-                }
-                std::string path = _settings.log_dir + _settings.err_filename;
-                _logfile.open(path, std::ios_base::app);
-            }
-        }
-        void openerr() {
-            if ( ! _errfile.is_open() ) {
-                if ( !file_exists(_settings.log_dir.c_str()) ) {
-                    ::mkdir(_settings.log_dir.c_str(), 0755);
-                }
-                std::string path = _settings.log_dir + _settings.err_filename;
-                _errfile.open(path, std::ios_base::app);
-            }
-        }
-    public:
-        logger() : _output_type(BOTH) {}
-
-        template <class T>
-        std::ostream & operator << (T val) {
-            time_t tm = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-
-            if ( _sev == INFO || _sev == WARN ) {
-                openlog();
-                return _logfile << std::put_time(std::localtime(&tm), "%Y-%m-%d %X");
-            }
-            else {
-                // error log
-                openerr();
-                return _errfile << std::put_time(std::localtime(&tm), "%Y-%m-%d %X");
-            }
+        void set_output_type ( OUTPUTTYPE type ) {
+            _output_type = type;
         }
 
-        std::ostream & operator << ( std::ostream & (*pfun)( std::ostream & ) )
-        {
-            if ( _sev == INFO || _sev == WARN ) {
-                pfun(std::cout);
-                return pfun(_logfile);
-            }
-            else {
-                // error log
-                pfun(std::cout);
-                return pfun(_errfile);
-            }
+        std::ostream & getoutput() {
+            return _output;
         }
-
-        /* setters */
-        void set_log_dir ( const string & path ) { 
-            _settings.log_dir = path; 
-        }
-        void set_log_filename ( const string & name ) { 
-            _settings.log_filename = name; 
-        }
-        void set_to_console ( OUTPUTTYPE output_type ) { 
-            _output_type = output_type; 
+        std::ostream & getoutput2() {
+            return _output2;
         }
 };
 
-#define LOG(LEVEL) ( logger::instance() )
+// time_t tm = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+// _errfile << std::put_time(std::localtime(&tm), "%Y-%m-%d %X");
+
+/* SETTINGS */
+void set_log_dir ( const string & path ) { 
+    g_flog_settings.log_dir = path; 
+}
+void set_log_filename ( const string & name ) { 
+    g_flog_settings.log_filename = name; 
+}
+void set_err_filename ( const string & name ) { 
+    g_flog_settings.err_filename = name;
+}
+
+static tee_logger _flog_log; // the global log object
+static tee_logger _flog_err; // the global err log object
+static tee_logger getLogger( int severity ) {
+    string path;
+    std::filebuf * f;
+    if( !file_exists(g_flog_settings.log_dir.c_str()) ) {
+        ::mkdir(g_flog_settings.log_dir.c_str(), 0755);
+    }
+    if( severity == INFO || severity == WARN  ) {
+        path = g_flog_settings.log_dir + "/" + g_flog_settings.log_filename;
+        f    = static_cast<std::filebuf *>(_flog_log.getoutput().rdbuf());
+    }
+    else {
+        path = g_flog_settings.log_dir + "/" + g_flog_settings.err_filename;
+        f    = static_cast<std::filebuf *>(_flog_err.getoutput().rdbuf());
+    }
+
+    if( ! f->is_open() ) {
+        f->open( path, std::ios::out|std::ios::app );
+    }
+
+    return severity == ERROR ? _flog_err : _flog_log;
+}
+
+#define LOG(SEVERITY) getLogger(SEVERITY)
 
 } // namespace FLOG
