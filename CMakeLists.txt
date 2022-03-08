@@ -6,12 +6,6 @@ execute_process(
     OUTPUT_VARIABLE CMAKE_OS_TYPE
 )
 
-if( ${CMAKE_OS_TYPE} STREQUAL "Linux" )
-    MESSAGE(INFO "THE CMAKE_OS_TYPE=${CMAKE_OS_TYPE}")
-    set(CMAKE_C_COMPILER   /opt/rh/devtoolset-9/root/bin/gcc)
-    set(CMAKE_CXX_COMPILER /opt/rh/devtoolset-9/root/bin/g++)
-endif()
-
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
@@ -21,11 +15,7 @@ set(CMAKE_CXX_STANDARD 11)
 include_directories(googletest/gtest/include)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 
-project(
-    flog
-    VERSION   0.0.1
-    LANGUAGES CXX
-)
+project(flog VERSION 0.0.1 LANGUAGES CXX)
 
 include(CTest)
 enable_testing()
