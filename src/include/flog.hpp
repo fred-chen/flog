@@ -16,6 +16,7 @@
 #include <fstream>
 #include <chrono>
 #include "singleton.hpp"
+#include "flog_exception.hpp"
 
 namespace FLOG {
 
@@ -38,13 +39,15 @@ std::vector<string> SERVERITIES_STR {
     log_level_list
 };
 
+enum OUTPUTTYPE { MAIN_OUTPUT, SECOND_OUTPUT, BOTH_OUTPUT };
+
 struct FLOG_SETTINGS
 {
     string log_dir      { PROJECT_NAME "_log" };
     string err_filename { PROJECT_NAME ".err" };
     string log_filename { PROJECT_NAME ".log" };
+    OUTPUTTYPE output_type { BOTH_OUTPUT };
 } g_flog_defaults, g_flog_settings;
-
 
 bool file_exists ( const char * path ) {
     struct stat st;
@@ -60,7 +63,6 @@ bool file_exists ( const char * path ) {
  * 
  */
 class tee_logger {
-    enum OUTPUTTYPE { MAIN_OUTPUT, SECOND_OUTPUT, BOTH_OUTPUT };
     private:
         OUTPUTTYPE     _output_type;    // whether to print to console
         std::ostream   _output;         // the main output object
@@ -93,6 +95,16 @@ class tee_logger {
             _output.rdbuf(output.rdbuf());
             _output2.rdbuf(output2.rdbuf());
             _initialized = true;
+        }
+        void init( std::streambuf * output_buf, std::streambuf * output2_buf, 
+                    OUTPUTTYPE type = BOTH_OUTPUT ) {
+            _output_type = type;
+            _output.rdbuf(output_buf);
+            _output2.rdbuf(output2_buf);
+            _initialized = true;
+        }
+        void uninit() {
+            _initialized = false;
         }
         
         /* below simulation funcitons of a real ostream */
@@ -136,21 +148,29 @@ class tee_logger {
          */
         tee_logger & operator<< (std::ostream& (*pf)(std::ostream&)) {
             if( _output_type == MAIN_OUTPUT || _output_type == BOTH_OUTPUT ) {
-                pf(_output2);
+                pf(_output);
             }
             if( _output_type == SECOND_OUTPUT || _output_type == BOTH_OUTPUT ) {
-                pf(_output);
+                pf(_output2);
             }
             return (*this);
         }
         tee_logger & operator<< (std::ios& (*pf)(std::ios&)) {
-            pf(_output2);
-            pf(_output);
+            if( _output_type == MAIN_OUTPUT || _output_type == BOTH_OUTPUT ) {
+                pf(_output);
+            }
+            if( _output_type == SECOND_OUTPUT || _output_type == BOTH_OUTPUT ) {
+                pf(_output2);
+            }
             return (*this);
         }
         tee_logger & operator<< (std::ios_base& (*pf)(std::ios_base&)) {
-            pf(_output2);
-            pf(_output);
+            if( _output_type == MAIN_OUTPUT || _output_type == BOTH_OUTPUT ) {
+                pf(_output);
+            }
+            if( _output_type == SECOND_OUTPUT || _output_type == BOTH_OUTPUT ) {
+                pf(_output2);
+            }
             return (*this);
         }
 
@@ -173,26 +193,18 @@ class tee_logger {
         }
 };
 
-/* SETTINGS */
-void set_log_dir ( const string & path ) {
-    g_flog_settings.log_dir = path;
-}
-void set_log_filename ( const string & name ) {
-    g_flog_settings.log_filename = name;
-}
-void set_err_filename ( const string & name ) {
-    g_flog_settings.err_filename = name;
-}
 
-static std::filebuf _fbuf_log;
-static std::filebuf _fbuf_err;
-static tee_logger _flog_log; // the global log object
-static tee_logger _flog_err; // the global err log object
 static tee_logger & getLogger( int severity ) {
+    static std::filebuf   _fbuf_log;
+    static std::filebuf   _fbuf_err;
+    static tee_logger _flog_log; // the global log object
+    static tee_logger _flog_err; // the global err log object
     string path;
 
-    tee_logger&   logger = (severity == ERROR) ? _flog_err : _flog_log;
-    std::filebuf& fbuf   = (severity == ERROR) ? _fbuf_err : _fbuf_log;
+    tee_logger&      logger = (severity == ERROR) ? _flog_err : _flog_log;
+    std::filebuf&    fbuf   = (severity == ERROR) ? _fbuf_err : _fbuf_log;
+    std::streambuf * sbuf   = (severity == ERROR) ? std::cerr.rdbuf()
+                                                  : std::cout.rdbuf();
 
     if( logger.initialized() ) {
         // the logger can be used without initialization
@@ -200,7 +212,10 @@ static tee_logger & getLogger( int severity ) {
     }
 
     if( !file_exists(g_flog_settings.log_dir.c_str()) ) {
-        ::mkdir(g_flog_settings.log_dir.c_str(), 0755);
+        if( ::mkdir(g_flog_settings.log_dir.c_str(), 0755) == -1 ) {
+            throw( flog_exception(std::string("failed to mkdir ") + 
+                        g_flog_settings.log_dir) );
+        }
     }
     if( severity == INFO || severity == WARN  ) {
         path = g_flog_settings.log_dir + "/" + g_flog_settings.log_filename;
@@ -210,10 +225,38 @@ static tee_logger & getLogger( int severity ) {
     }
 
     fbuf.open(path, std::ios::app|std::ios::out);
-    logger.getoutput().rdbuf(&fbuf);
+    logger.init( &fbuf, sbuf, g_flog_settings.output_type );
 
     return logger;
 }
+
+
+void reopen() { 
+    getLogger(ERROR).uninit();
+    getLogger(INFO).uninit();
+}
+/* SETTINGS */
+void set_log_dir ( const string & path ) {
+    g_flog_settings.log_dir = path;
+    reopen();
+}
+void set_log_filename ( const string & name ) {
+    g_flog_settings.log_filename = name;
+    reopen();
+}
+void set_err_filename ( const string & name ) {
+    g_flog_settings.err_filename = name;
+    reopen();
+}
+
+#define LOGFILE OUTPUTTYPE::MAIN_OUTPUT
+#define SCREEN  OUTPUTTYPE::SECOND_OUTPUT
+void set_log_devices ( OUTPUTTYPE type ) {
+    g_flog_settings.output_type = type;
+    getLogger(ERROR).set_output_type(type);
+    getLogger(INFO).set_output_type(type);
+}
+
 
 tee_logger & LOG(SEVERITIES severity) {
     time_t tm = std::chrono::system_clock::to_time_t(
@@ -223,5 +266,6 @@ tee_logger & LOG(SEVERITIES severity) {
                 << std::put_time(std::localtime(&tm), "%Y-%m-%d %X")
                 << " ";
 }
+
 
 } // namespace FLOG
