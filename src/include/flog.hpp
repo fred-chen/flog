@@ -28,7 +28,7 @@ using std::string;
         level_element(WARN)     \
         level_element(ERROR)
 
-enum SERVERITIES {
+enum SEVERITIES {
     log_level_list
 };
 
@@ -65,22 +65,34 @@ class tee_logger {
         OUTPUTTYPE     _output_type;    // whether to print to console
         std::ostream   _output;         // the main output object
         std::ostream   _output2;        // the 2nd output object
+        bool           _initialized;    // is it initialized
     public:
         tee_logger() : 
             _output(std::cout.rdbuf()),
             _output2(std::cerr.rdbuf()),
-            _output_type(BOTH_OUTPUT) {}
+            _output_type(BOTH_OUTPUT),
+            _initialized(false) {}
         
         tee_logger( std::ostream & output, std::ostream & output2, 
                     OUTPUTTYPE type = BOTH_OUTPUT ) :
             _output_type(type),
             _output(output.rdbuf()),
-            _output2(output2.rdbuf()) {}
+            _output2(output2.rdbuf()),
+            _initialized(true) {}
 
         tee_logger( const tee_logger & rhs ) : tee_logger() {
-            // _output_type = rhs._output_type;
-            // _output.rdbuf(rhs._output.rdbuf());
-            // _output2.rdbuf(rhs._output2.rdbuf());
+            _output_type = rhs._output_type;
+            _output.rdbuf(rhs._output.rdbuf());
+            _output2.rdbuf(rhs._output2.rdbuf());
+            _initialized = rhs._initialized;
+        }
+
+        void init( std::ostream & output, std::ostream & output2, 
+                    OUTPUTTYPE type = BOTH_OUTPUT ) {
+            _output_type = type;
+            _output.rdbuf(output.rdbuf());
+            _output2.rdbuf(output2.rdbuf());
+            _initialized = true;
         }
         
         /* below simulation funcitons of a real ostream */
@@ -142,6 +154,10 @@ class tee_logger {
             return (*this);
         }
 
+        bool operator== (tee_logger & rhs) {
+            return ( (rhs.getoutput().rdbuf()  == _output.rdbuf()) && 
+                     (rhs.getoutput2().rdbuf() == _output2.rdbuf()) );
+        }
         void set_output_type ( OUTPUTTYPE type ) {
             _output_type = type;
         }
@@ -152,46 +168,60 @@ class tee_logger {
         std::ostream & getoutput2() {
             return _output2;
         }
+        bool initialized() const {
+            return _initialized;
+        }
 };
 
-// time_t tm = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-// _errfile << std::put_time(std::localtime(&tm), "%Y-%m-%d %X");
-
 /* SETTINGS */
-void set_log_dir ( const string & path ) { 
-    g_flog_settings.log_dir = path; 
+void set_log_dir ( const string & path ) {
+    g_flog_settings.log_dir = path;
 }
-void set_log_filename ( const string & name ) { 
-    g_flog_settings.log_filename = name; 
+void set_log_filename ( const string & name ) {
+    g_flog_settings.log_filename = name;
 }
-void set_err_filename ( const string & name ) { 
+void set_err_filename ( const string & name ) {
     g_flog_settings.err_filename = name;
 }
 
+static std::filebuf _fbuf_log;
+static std::filebuf _fbuf_err;
 static tee_logger _flog_log; // the global log object
 static tee_logger _flog_err; // the global err log object
-static tee_logger getLogger( int severity ) {
+static tee_logger & getLogger( int severity ) {
     string path;
-    std::filebuf * f;
+
+    tee_logger&   logger = (severity == ERROR) ? _flog_err : _flog_log;
+    std::filebuf& fbuf   = (severity == ERROR) ? _fbuf_err : _fbuf_log;
+
+    if( logger.initialized() ) {
+        // the logger can be used without initialization
+        return logger;
+    }
+
     if( !file_exists(g_flog_settings.log_dir.c_str()) ) {
         ::mkdir(g_flog_settings.log_dir.c_str(), 0755);
     }
     if( severity == INFO || severity == WARN  ) {
         path = g_flog_settings.log_dir + "/" + g_flog_settings.log_filename;
-        f    = static_cast<std::filebuf *>(_flog_log.getoutput().rdbuf());
     }
     else {
         path = g_flog_settings.log_dir + "/" + g_flog_settings.err_filename;
-        f    = static_cast<std::filebuf *>(_flog_err.getoutput().rdbuf());
     }
 
-    if( ! f->is_open() ) {
-        f->open( path, std::ios::out|std::ios::app );
-    }
+    fbuf.open(path, std::ios::app|std::ios::out);
+    logger.getoutput().rdbuf(&fbuf);
 
-    return severity == ERROR ? _flog_err : _flog_log;
+    return logger;
 }
 
-#define LOG(SEVERITY) getLogger(SEVERITY)
+tee_logger & LOG(SEVERITIES severity) {
+    time_t tm = std::chrono::system_clock::to_time_t(
+                        std::chrono::system_clock::now());
+    return getLogger(severity) << std::setw(5) << std::left
+                << SERVERITIES_STR[severity] << " "
+                << std::put_time(std::localtime(&tm), "%Y-%m-%d %X")
+                << " ";
+}
 
 } // namespace FLOG
