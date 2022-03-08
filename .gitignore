@@ -1,3 +1,4 @@
 **/build_*
 **/config.hpp.in
 **/.devcontainer
+src/include/flog.hpp
