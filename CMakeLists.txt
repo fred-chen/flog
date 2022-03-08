@@ -16,6 +16,7 @@ include_directories(googletest/gtest/include)
 add_subdirectory(googletest EXCLUDE_FROM_ALL)
 
 project(flog VERSION 0.0.1 LANGUAGES CXX)
+string(TIMESTAMP TODAY "%Y-%m-%d")
 
 include(CTest)
 enable_testing()

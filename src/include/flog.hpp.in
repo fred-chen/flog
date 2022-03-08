@@ -1,14 +1,21 @@
 /**
  * @file flog.hpp
  * @author Fred Chen (fred.chen@live.com)
- * @brief  a simple C++ style log module
- * @date 2022-03-06
+ * @brief  a simple C++ style header only log module
+ * @date @TODAY@
  * 
  * @copyright Copyright (c) 2022
  * 
  */
 
-#define PROJECT_NAME "@PROJECT_NAME@"
+/*
+****************************************
+@WARNING_TEXT_DONTMODIFY@ 
+****************************************
+*/
+
+#define PROJECT_NAME    "@PROJECT_NAME@"
+#define PROJECT_VERSION "@PROJECT_VERSION@"
 
 #include <string>
 #include <vector>
