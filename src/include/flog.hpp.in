@@ -70,10 +70,10 @@ enum OUTPUTTYPE { MAIN_OUTPUT, SECOND_OUTPUT, BOTH_OUTPUT };
 
 struct FLOG_SETTINGS
 {
-    string log_dir      { PROJECT_NAME "_log" };
-    string err_filename { PROJECT_NAME ".err" };
-    string log_filename { PROJECT_NAME ".log" };
-    OUTPUTTYPE output_type { BOTH_OUTPUT };
+    std::string log_dir      { PROJECT_NAME "_log" };
+    std::string err_filename { PROJECT_NAME ".err" };
+    std::string log_filename { PROJECT_NAME ".log" };
+    OUTPUTTYPE  output_type  { BOTH_OUTPUT };
 } g_flog_defaults, g_flog_settings;
 
 bool file_exists ( const char * path ) {
