@@ -12,14 +12,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 11)
 
-include_directories(googletest/gtest/include)
-add_subdirectory(googletest EXCLUDE_FROM_ALL)
-
 project(flog VERSION 0.0.1 LANGUAGES CXX)
 string(TIMESTAMP TODAY "%Y-%m-%d")
-
-include(CTest)
-enable_testing()
 
 add_subdirectory(src)
 

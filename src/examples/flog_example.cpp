@@ -1,9 +1,8 @@
-#include "gtest/gtest.h"
 #include "flog.hpp"
 
 using namespace std;
 
-TEST(testFlog, example) {
+int main(int argc, char* argv[]) {
     /**
      * tweak your settings before use
      * 

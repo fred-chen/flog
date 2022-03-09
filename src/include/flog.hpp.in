@@ -21,8 +21,11 @@
 #include <vector>
 #include <iostream>
 #include <fstream>
+#include <iomanip>
 #include <chrono>
 #include <exception>
+#include <cstring>
+#include <sys/stat.h>
 
 namespace FLOG {
 
