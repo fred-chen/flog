@@ -62,13 +62,13 @@ enum SEVERITIES {
 
 #undef  level_element
 #define level_element(X) #X,
-std::vector<string> SERVERITIES_STR {
+static std::vector<string> SERVERITIES_STR {
     log_level_list
 };
 
 enum OUTPUTTYPE { MAIN_OUTPUT, SECOND_OUTPUT, BOTH_OUTPUT };
 
-struct FLOG_SETTINGS
+static struct FLOG_SETTINGS
 {
     std::string log_dir      { PROJECT_NAME "_log" };
     std::string err_filename { PROJECT_NAME ".err" };
@@ -76,7 +76,7 @@ struct FLOG_SETTINGS
     OUTPUTTYPE  output_type  { BOTH_OUTPUT };
 } g_flog_defaults, g_flog_settings;
 
-bool file_exists ( const char * path ) {
+inline bool file_exists ( const char * path ) {
     struct stat st;
     if ( stat(path, &st) == -1 ) {
         return false;
@@ -257,35 +257,34 @@ static tee_logger & getLogger( int severity ) {
     return logger;
 }
 
-
-void reopen() { 
+inline void reopen() { 
     getLogger(ERROR).uninit();
     getLogger(INFO).uninit();
 }
 /* SETTINGS */
-void set_log_dir ( const string & path ) {
+inline void set_log_dir ( const string & path ) {
     g_flog_settings.log_dir = path;
     reopen();
 }
-void set_log_filename ( const string & name ) {
+inline void set_log_filename ( const string & name ) {
     g_flog_settings.log_filename = name;
     reopen();
 }
-void set_err_filename ( const string & name ) {
+inline void set_err_filename ( const string & name ) {
     g_flog_settings.err_filename = name;
     reopen();
 }
 
 #define LOGFILE OUTPUTTYPE::MAIN_OUTPUT
 #define SCREEN  OUTPUTTYPE::SECOND_OUTPUT
-void set_log_devices ( OUTPUTTYPE type ) {
+inline void set_log_devices ( OUTPUTTYPE type ) {
     g_flog_settings.output_type = type;
     getLogger(ERROR).set_output_type(type);
     getLogger(INFO).set_output_type(type);
 }
 
 
-tee_logger & LOG(SEVERITIES severity) {
+inline tee_logger & LOG(SEVERITIES severity) {
     time_t tm = std::chrono::system_clock::to_time_t(
                         std::chrono::system_clock::now());
     return getLogger(severity) << std::setw(5) << std::left
