@@ -91,9 +91,9 @@ inline bool file_exists ( const char * path ) {
  */
 class tee_logger {
     private:
-        OUTPUTTYPE     _output_type;    // whether to print to console
         std::ostream   _output;         // the main output object
         std::ostream   _output2;        // the 2nd output object
+        OUTPUTTYPE     _output_type;    // whether to print to console
         bool           _initialized;    // is it initialized
     public:
         tee_logger() : 
@@ -104,15 +104,15 @@ class tee_logger {
         
         tee_logger( std::ostream & output, std::ostream & output2, 
                     OUTPUTTYPE type = BOTH_OUTPUT ) :
-            _output_type(type),
             _output(output.rdbuf()),
             _output2(output2.rdbuf()),
+            _output_type(type),
             _initialized(true) {}
 
         tee_logger( const tee_logger & rhs ) : tee_logger() {
-            _output_type = rhs._output_type;
             _output.rdbuf(rhs._output.rdbuf());
             _output2.rdbuf(rhs._output2.rdbuf());
+            _output_type = rhs._output_type;
             _initialized = rhs._initialized;
         }
 
