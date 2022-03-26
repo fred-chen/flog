@@ -29,6 +29,19 @@
 
 namespace FLOG {
 
+static inline std::string get_current_time()
+{
+    time_t rawtime;
+    struct tm * timeinfo;
+
+    time ( &rawtime );
+    timeinfo = localtime ( &rawtime );
+
+    char output[30];
+    strftime(output, 30, "%Y %m-%d %H-%M-%S %a", timeinfo);
+
+    return std::string(output);
+}
 
 class flog_exception : public std::exception {
     int   _errno;
@@ -289,7 +302,7 @@ inline tee_logger & LOG(SEVERITIES severity) {
                         std::chrono::system_clock::now());
     return getLogger(severity) << std::setw(5) << std::left
                 << SERVERITIES_STR[severity] << " "
-                << std::put_time(std::localtime(&tm), "%Y-%m-%d %X")
+                << get_current_time() << " "
                 << " ";
 }
 
