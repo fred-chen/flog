@@ -298,8 +298,6 @@ inline void set_log_devices ( OUTPUTTYPE type ) {
 
 
 inline tee_logger & LOG(SEVERITIES severity) {
-    time_t tm = std::chrono::system_clock::to_time_t(
-                        std::chrono::system_clock::now());
     return getLogger(severity) << std::setw(5) << std::left
                 << SERVERITIES_STR[severity] << " "
                 << get_current_time() << " "
